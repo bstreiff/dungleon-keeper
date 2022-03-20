@@ -1,0 +1,69 @@
+# The timing on this is very particular-- we want to fetch late enough that
+# we're not getting this before people get a chance to do the puzzle, but
+# we need to still be able to pick it up while the server still lets us.
+on:
+    schedule:
+        - cron: '54 3 * * *'
+    workflow_dispatch:
+
+jobs:
+    update_dungles:
+        runs-on: ubuntu-latest
+        name: update dungles
+        steps:
+        - name: Checkout
+          uses: actions/checkout@v2
+          with:
+              fetch-depth: 0
+        - name: Retrieve puzzle solution
+          uses: actions/github-script@v6
+          id: puzzle-fetch
+          with:
+              result-encoding: string
+              script: |
+                  var https = require('https')
+                  var fs = require('fs');
+
+                  const options = {
+                      hostname: 'www.dungleon.com',
+                      port: 443,
+                      path: '/puzzle?date=' + (Date.now() - 86400000),
+                      method: 'GET'
+                  }
+
+                  var got_puzzle = undefined;
+
+                  const req = https.request(options, res => {
+                      contents = [];
+                      
+                      res.on('data', chunk => {
+                          contents.push(chunk);
+                      });
+
+                      res.on('end', () => {
+                          var puzzle = JSON.parse(contents.join(""));
+                          /* index on their side is zero-indexed */
+                          var index = puzzle.index + 1;
+                          var answer = puzzle.answer;
+
+                          got_puzzle = index;
+
+                          db_json = fs.readFileSync('dungles.json', 'utf8');
+                          db = JSON.parse(db_json);
+                          db[index] = answer;
+                          fs.writeFileSync('dungles.json', JSON.stringify(db, null, 4));
+                      })
+                  })
+                  req.on('error', error => {
+                      console.error(error);
+                  })
+                  req.end();
+
+                  return got_puzzle;
+
+        - name: Create commit
+          run: |
+              git config --local user.email "github-actions[bot]@users.noreply.github.com"
+              git config --local user.name "GitHub Action[bot]"
+              git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
+              git commit -am "add puzzle #${{steps.puzzle-fetch.outputs.result}}" && git push || echo "No changes to commit"
