@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Dungleon Keeper</title>
+<link rel="stylesheet" type="text/css" href="style.css" />
+
+<script>
+if (window.location.protocol == 'http;' && !(location.hostname === "localhost")) {
+   window.location.href = window.location.href.replace('http:', 'https:');
+}
+
+var dungles = {};
+var pieces = {};
+var first_puzzle_date = new Date(2022, 1, 5);
+var selectedPieces = [];
+
+function filter() {
+    var results = [];
+    
+    for (const d in dungles) {
+        if (dungles.hasOwnProperty(d)) {
+            var answer = dungles[d].split(" ");
+            var match = false;
+            for (var i = 0; i < answer.length; ++i) {
+                if (selectedPieces.indexOf(answer[i]) >= 0) {
+                    match = true;
+                    break;
+                }
+            }
+            if (match == true) {
+                results.push(d);
+            }
+        }
+    }
+
+    return results;
+}
+
+function update() {
+    document.getElementById("grid").innerHTML = "";
+
+    var results = filter();
+
+    results.forEach(function(id) {
+        var answer = dungles[""+id].split(" ");
+        var date = new Date(first_puzzle_date.getTime() + (id * 60 * 60 * 24 * 1000));
+
+        var row = document.createElement("div");
+        row.className = "row";
+
+        var puzid = document.createElement("div");
+        puzid.className = "cell puzzle";
+        var dateStr = ("" + date.getUTCFullYear() + "-" +
+                            ("00"+(date.getUTCMonth()+1)).slice(-2) + "-" +
+                            ("00"+(date.getUTCDate())).slice(-2));
+        puzid.innerHTML = "<h2>#" + id + "</h2><h3>" + dateStr + "</h3>";
+        puzid.style = "width: 160px; height: 72px;";
+        row.appendChild(puzid);
+
+        for (var i = 0; i < answer.length; ++i) {
+            var cell = document.createElement("div");
+            if (selectedPieces.indexOf(answer[i]) == -1) {
+                cell.className = "cell filled";
+            } else {
+                cell.className = "cell filled correct";
+            }
+            cell.style = "width: 72px; height: 72px;";
+
+            var cellImg = document.createElement("div");
+            cellImg.classImg = "img";
+            cellImg.style = "background-image: url('img/" + answer[i] + ".png'); width: 64px; height: 64px;"
+            cell.appendChild(cellImg);
+
+            row.appendChild(cell);
+        }
+
+        document.getElementById("grid").appendChild(row);
+    });
+
+}
+
+function getButtonNames() {
+    var buttons = pieces.buttons;
+
+    buttonNames = [];
+    for (var r = 0; r < buttons.length; ++r) {
+       for (var bt = 0; bt < buttons[r].length; ++bt) {
+           buttonNames.push(buttons[r][bt].id);
+       }
+    }
+    return buttonNames;
+}
+
+function filterToggle(button, key) {
+    var index = selectedPieces.indexOf(key);
+    if (index != -1) {
+       selectedPieces.splice(index, 1);
+       button.className = "button";
+    } else {
+       selectedPieces.push(key);
+       selectedPieces.sort();
+       button.className = "button correct";
+    }
+
+    update();
+};
+
+function filterAll(button, state) {
+    allButtons = getButtonNames();
+
+    if (state) {
+        selectedPieces = allButtons;
+    } else {
+        selectedPieces = [];
+    }
+
+    for (var i = 0; i < allButtons.length; ++i) {
+        document.getElementById("button-" + allButtons[i]).className = (state ? "button correct" : "button");
+    }
+
+    update();
+}
+
+function initKeyboard() {
+    var buttons = pieces.buttons;
+
+    var buttonNames = getButtonNames();
+    buttonNames.push("tr"); /* "troll" is in sprites? */
+    buttonNames.sort();
+
+    for (var r = 0; r < buttons.length; ++r) {
+       buttonRow = document.createElement("div");
+       buttonRow.className = "buttons-row";
+       for (var bt = 0; bt < buttons[r].length; ++bt) {
+           var key = buttons[r][bt].id;
+           newButton = document.createElement("button");
+           newButton.id = "button-" + key;
+           newButton.className = "button correct";
+           newButton.style = "max-width: 70px;";
+           newButton.onclick = (function(k) {
+               return function() { filterToggle(this, k); };
+           })(key);
+
+           buttonSpriteIndex = buttonNames.indexOf(key);
+
+           buttonContents = document.createElement("div");
+           buttonContents.className = "small-image-sprite";
+           buttonContents.style = ("background-position: " + (buttonSpriteIndex * -32) + "px 0px");
+
+           newButton.appendChild(buttonContents);
+           buttonRow.appendChild(newButton);
+       }
+
+       if (r == 1 || r == 2) {
+           newButton = document.createElement("button");
+           newButton.className = "button backspace";
+           newButton.style = "max-width: 70px;";
+
+           newButton.onclick = (function(k) {
+               return function() { filterAll(this, k); };
+           })(r == 2);
+
+           newButton.innerHTML = (r == 2 ? "ALL" : "NONE");
+               
+           buttonRow.appendChild(newButton);
+       }
+
+       document.getElementById("buttons-container").appendChild(buttonRow);
+    }
+}
+
+function main() {
+    var dp = fetch('dungles.json').then(function(response) {
+        return response.json();
+    });
+    var pp = fetch('pieces.json').then(function(response) {
+        return response.json();
+    });
+
+    Promise.all([dp, pp]).then(function(response) {
+        dungles = response[0];
+        pieces = response[1];
+
+        selectedPieces = getButtonNames();
+
+        initKeyboard();
+
+        update();
+    });
+}
+</script>
+
+</head>
+<body>
+
+<div id="header">
+<h1 id="title">Dung<span class="highlighted-letter">l</span>eon Kee<span class="highlighted-letter">p</span>er</h1>
+<p lang="en">An unoffical repository of past <a href="https://www.dungleon.com/">Dung<span class="highlighted-letter">l</span>eon</a> solutions.</p>
+</div>
+
+<div id="buttons-container">
+</div>
+
+<div id="game-container" style="width: 520px;">
+<div id="grid-container">
+<div id="grid" style="gap: 2px;">
+</div>
+</div>
+</div>
+
+<script>
+main();
+</script>
+
+</body>
+</html>
