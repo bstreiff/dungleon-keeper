@@ -66,4 +66,4 @@ jobs:
               git config --local user.email "github-actions[bot]@users.noreply.github.com"
               git config --local user.name "GitHub Action[bot]"
               git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
-              git commit -am "add puzzle #${{steps.puzzle-fetch.outputs.result}}" && git push || echo "No changes to commit"
+              git commit -am "add puzzle" && git push || echo "No changes to commit"
