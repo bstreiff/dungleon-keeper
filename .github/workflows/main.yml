@@ -3,7 +3,7 @@
 # we need to still be able to pick it up while the server still lets us.
 on:
     schedule:
-        - cron: '54 3 * * *'
+        - cron: '54 11 * * *'
     workflow_dispatch:
 
 jobs:
